@@ -7,14 +7,21 @@
 )]
 
 use esp_hal::clock::CpuClock;
-use esp_hal::gpio::{Level, Output, OutputConfig};
+use esp_hal::delay::Delay;
 use esp_hal::main;
-use esp_hal::time::{Duration, Instant};
 use esp_hal::timer::timg::TimerGroup;
 
 // Logger.
 use esp_println::logger;
 use log::info;
+
+// For LED.
+// use esp_hal::gpio::{Level, Output, OutputConfig};
+
+// For BME280.
+use bme280::i2c::BME280;
+use embedded_hal::delay::DelayNs;
+use esp_hal::i2c::master::{Config, I2c};
 
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
@@ -47,12 +54,35 @@ fn main() -> ! {
         esp_radio::wifi::new(&radio_init, peripherals.WIFI, Default::default())
             .expect("Failed to initialize Wi-Fi controller");
 
-    let mut led = Output::new(peripherals.GPIO8, Level::Low, OutputConfig::default());
+    /*
+    // High is when LED is off.
+    let mut led = Output::new(peripherals.GPIO8, Level::High, OutputConfig::default());
     loop {
         let delay_start = Instant::now();
         while delay_start.elapsed() < Duration::from_millis(1000) {}
         led.toggle();
         info!("pin level is {:?}", led.output_level());
+    }
+    */
+
+    // This code is for ESP32C3-Supermini.
+    let i2c_bus = I2c::new(peripherals.I2C0, Config::default())
+        .unwrap()
+        .with_sda(peripherals.GPIO8)
+        .with_scl(peripherals.GPIO9);
+    let mut bme280 = BME280::new_primary(i2c_bus);
+    let mut delay = Delay::new();
+    bme280.init(&mut delay).unwrap();
+
+    loop {
+        let result = bme280.measure(&mut delay).unwrap();
+
+        info!(
+            "Temperature: {} degC;  Pressure: {} Pa;  Humidity: {}%",
+            result.temperature, result.pressure, result.humidity
+        );
+
+        delay.delay_ms(1000);
     }
 
     // for inspiration have a look at the examples at https://github.com/esp-rs/esp-hal/tree/esp-hal-v1.0.0/examples/src/bin

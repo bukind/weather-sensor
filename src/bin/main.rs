@@ -7,12 +7,14 @@
 )]
 
 use esp_hal::clock::CpuClock;
+use esp_hal::gpio::{Level, Output, OutputConfig};
 use esp_hal::main;
 use esp_hal::time::{Duration, Instant};
 use esp_hal::timer::timg::TimerGroup;
 
-use log::{info};
+// Logger.
 use esp_println::logger;
+use log::info;
 
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
@@ -28,6 +30,7 @@ esp_bootloader_esp_idf::esp_app_desc!();
 #[main]
 fn main() -> ! {
     // generator version: 1.0.1
+
     logger::init_logger(log::LevelFilter::Info);
 
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
@@ -44,10 +47,12 @@ fn main() -> ! {
         esp_radio::wifi::new(&radio_init, peripherals.WIFI, Default::default())
             .expect("Failed to initialize Wi-Fi controller");
 
+    let mut led = Output::new(peripherals.GPIO8, Level::Low, OutputConfig::default());
     loop {
         let delay_start = Instant::now();
-        while delay_start.elapsed() < Duration::from_millis(500) {}
-        info!("tick.");
+        while delay_start.elapsed() < Duration::from_millis(1000) {}
+        led.toggle();
+        info!("pin level is {:?}", led.output_level());
     }
 
     // for inspiration have a look at the examples at https://github.com/esp-rs/esp-hal/tree/esp-hal-v1.0.0/examples/src/bin
